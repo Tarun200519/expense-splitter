@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Expense Splitter</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    table { border-collapse: collapse; margin: 1em 0; }
+    td, th { border: 1px solid #ddd; padding: 0.5em; }
+    input[type="number"] { width: 80px; }
+    #result { margin-top: 1em; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Expense Splitter</h2>
+  <form id="expense-form" onsubmit="return false;">
+    Name: <input type="text" id="name" required>
+    Paid: <input type="number" id="paid" min="0" step="0.01" required>
+    <button onclick="addExpense()">Add</button>
+  </form>
+
+  <table id="expense-table">
+    <thead>
+      <tr><th>Name</th><th>Paid</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button onclick="calculateSplit()">Calculate Split</button>
+  <div id="result"></div>
+
+  <script>
+    const expenses = [];
+
+    function addExpense() {
+      const name = document.getElementById('name').value.trim();
+      const paid = parseFloat(document.getElementById('paid').value);
+      if (!name || isNaN(paid)) return;
+
+      expenses.push({ name, paid });
+      updateTable();
+
+      // clear form
+      document.getElementById('expense-form').reset();
+    }
+
+    function updateTable() {
+      const tbody = document.querySelector('#expense-table tbody');
+      tbody.innerHTML = '';
+      expenses.forEach(e => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${e.name}</td><td>$${e.paid.toFixed(2)}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    function calculateSplit() {
+      if (expenses.length === 0) return;
+      const total = expenses.reduce((sum, p) => sum + p.paid, 0);
+      const perPerson = total / expenses.length;
+
+      // Calculate balances
+      const balances = expenses.map(p => ({
+        name: p.name,
+        balance: +(p.paid - perPerson).toFixed(2)
+      }));
+
+      // Split into payers and receivers
+      const payers = balances.filter(b => b.balance < 0).map(b => ({ ...b }));
+      const receivers = balances.filter(b => b.balance > 0).map(b => ({ ...b }));
+
+      const transactions = [];
+      let i = 0, j = 0;
+      while (i < payers.length && j < receivers.length) {
+        const amount = Math.min(-payers[i].balance, receivers[j].balance);
+        transactions.push({
+          from: payers[i].name,
+          to: receivers[j].name,
+          amount: +amount.toFixed(2)
+        });
+        payers[i].balance += amount;
+        receivers[j].balance -= amount;
+        if (Math.abs(payers[i].balance) < 1e-8) i++;
+        if (Math.abs(receivers[j].balance) < 1e-8) j++;
+      }
+
+      // Prepare result string
+      let result = `<div>Total: $${total.toFixed(2)} | Per Person: $${perPerson.toFixed(2)}</div>`;
+      if (transactions.length === 0) {
+        result += "<div>All settled!</div>";
+      } else {
+        result += "<ul>";
+        transactions.forEach(t => {
+          result += `<li>${t.from} pays ${t.to}: $${t.amount}</li>`;
+        });
+        result += "</ul>";
+      }
+      document.getElementById('result').innerHTML = result;
+    }
+  </script>
+</body>
+</html>
